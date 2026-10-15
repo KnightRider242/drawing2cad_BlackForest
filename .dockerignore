@@ -1,6 +1,0 @@
-.git
-**/.venv
-**/__pycache__
-**/*.pyc
-backend/outputs/*
-frontend/node_modules
