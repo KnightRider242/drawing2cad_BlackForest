@@ -1,12 +1,47 @@
-"""Small stdio MCP client used by the FastAPI layer."""
+"""stdio MCP client used by the FastAPI layer.
+
+Set DRAWING2CAD_MCP_DOCKER=1 to run the MCP server inside the restricted
+Docker container built from mcp_server/Dockerfile.
+"""
 import json
+import os
 import sys
+from pathlib import Path
 from typing import Any
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 from .schemas import PartSpec
+
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+OUTPUT_DIR = BACKEND_DIR / "outputs"
+
+
+def _server_parameters() -> StdioServerParameters:
+    if os.getenv("DRAWING2CAD_MCP_DOCKER", "").lower() in {"1", "true", "yes"}:
+        output_path = str(OUTPUT_DIR.resolve())
+        return StdioServerParameters(
+            command="docker",
+            args=[
+                "run", "--rm", "-i",
+                "--network", "none",
+                "--read-only",
+                "--tmpfs", "/tmp:rw,noexec,nosuid,size=256m",
+                "--memory=2g",
+                "--cpus=2",
+                "--pids-limit=128",
+                "-v", f"{output_path}:/app/backend/outputs",
+                "drawing2cad-mcp:local",
+            ],
+            env=None,
+        )
+    return StdioServerParameters(
+        command=sys.executable,
+        args=["-m", "app.mcp_server"],
+        env=None,
+        cwd=str(BACKEND_DIR),
+    )
 
 
 def _decode_tool_result(result: Any) -> dict:
@@ -28,13 +63,9 @@ def _decode_tool_result(result: Any) -> dict:
 
 
 async def build_via_mcp(spec: PartSpec) -> dict:
-    """Start the local MCP server over stdio and call its structured create_part tool."""
-    server = StdioServerParameters(
-        command=sys.executable,
-        args=["-m", "app.mcp_server"],
-        env=None,
-    )
-    async with stdio_client(server) as (read_stream, write_stream):
+    """Build a part exclusively by calling the MCP create_part tool."""
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    async with stdio_client(_server_parameters()) as (read_stream, write_stream):
         async with ClientSession(read_stream, write_stream) as session:
             await session.initialize()
             result = await session.call_tool(
