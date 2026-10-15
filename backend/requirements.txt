@@ -2,5 +2,9 @@ fastapi>=0.115,<1
 uvicorn[standard]>=0.30,<1
 pydantic>=2.8,<3
 mcp>=1.6,<2
+ollama>=0.4,<1
+opencv-python>=4.10,<5
+pytesseract>=0.3.13,<1
 # Install CadQuery separately in a compatible environment (Python 3.11/3.12).
-# Recommended Windows setup: conda install -c conda-forge cadquery
+# Recommended: conda install -c conda-forge cadquery
+# pytesseract also requires the Tesseract OCR executable installed on the OS.
