@@ -1,9 +1,0 @@
-name: drawing2cad
-channels:
-  - conda-forge
-dependencies:
-  - python=3.11
-  - cadquery
-  - pip
-  - pip:
-      - "mcp>=1.6,<2"
