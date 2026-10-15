@@ -1,10 +1,9 @@
 """stdio MCP client used by the FastAPI layer.
 
-Set DRAWING2CAD_MCP_DOCKER=1 to run the MCP server inside the restricted
-Docker container built from mcp_server/Dockerfile.
+The MCP server runs as a local Python subprocess. Optional container isolation
+can be added later without changing the API's structured tool interface.
 """
 import json
-import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -19,23 +18,7 @@ OUTPUT_DIR = BACKEND_DIR / "outputs"
 
 
 def _server_parameters() -> StdioServerParameters:
-    if os.getenv("DRAWING2CAD_MCP_DOCKER", "").lower() in {"1", "true", "yes"}:
-        output_path = str(OUTPUT_DIR.resolve())
-        return StdioServerParameters(
-            command="docker",
-            args=[
-                "run", "--rm", "-i",
-                "--network", "none",
-                "--read-only",
-                "--tmpfs", "/tmp:rw,noexec,nosuid,size=256m",
-                "--memory=2g",
-                "--cpus=2",
-                "--pids-limit=128",
-                "-v", f"{output_path}:/app/backend/outputs",
-                "drawing2cad-mcp:local",
-            ],
-            env=None,
-        )
+    """Launch the local MCP server using the same Python environment as FastAPI."""
     return StdioServerParameters(
         command=sys.executable,
         args=["-m", "app.mcp_server"],
@@ -85,3 +68,4 @@ async def build_via_mcp(spec: PartSpec) -> dict:
                 ]
                 raise RuntimeError("MCP create_part failed: " + " ".join(messages))
             return _decode_tool_result(result)
+}
