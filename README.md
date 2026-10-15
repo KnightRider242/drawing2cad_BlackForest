@@ -22,10 +22,10 @@ The prototype is designed to:
 - **Intermediate representation:** Pydantic-validated JSON in backend/app/intermediate.py
 - **CAD tool interface:** local MCP server in backend/app/mcp_server.py
 - **CAD kernel:** CadQuery / OpenCascade
-- **Sandbox:** Docker MCP worker with no network, read-only root filesystem, resource limits and a dedicated output mount
+- **Execution:** local MCP worker process communicating over stdio
 - **Output:** STEP file plus validation/review metadata
 
-The /api/build route calls the MCP server using MCP stdio. It does not call the CAD builder directly. For stronger isolation, enable the Docker worker mode below.
+The `/api/build` route calls the MCP server using MCP stdio. It does not call the CAD builder directly. The MCP server runs locally as a separate process; Docker isolation is intentionally out of scope for the initial prototype and may be added later.
 
 ## Repository layout
 
@@ -39,9 +39,6 @@ backend/
     mcp_server.py           # Structured MCP CAD tools
     mcp_client.py           # FastAPI -> MCP stdio client
   requirements.txt
-mcp_server/
-  environment.yml           # Isolated CAD environment
-  Dockerfile                # Restricted worker image
 frontend/
   src/
   package.json
@@ -52,7 +49,6 @@ frontend/
 - Python 3.11 or 3.12, 64-bit
 - Node.js 20+
 - CadQuery installed in a compatible environment
-- Docker Desktop for isolated MCP worker mode
 
 ### Windows: install dependencies
 
@@ -99,26 +95,6 @@ npm run dev
 Open http://127.0.0.1:5173.
 
 Use **Build & validate STEP** to create a parameterized demo plate. This verifies the MCP → CadQuery → STEP validation path; drawing recognition is not yet wired into the UI.
-
-## Isolated MCP worker (Docker)
-
-Build the worker image from the repository root:
-
-~~~powershell
-docker build -f mcp_server/Dockerfile -t drawing2cad-mcp:local .
-~~~
-
-Ensure Docker Desktop is running, then set this environment variable in the terminal used to start FastAPI:
-
-~~~powershell
-$env:DRAWING2CAD_MCP_DOCKER = "1"
-cd backend
-python -m uvicorn app.main:app --reload
-~~~
-
-With this setting, the API launches the MCP server in a short-lived Docker container for each build. The worker is run with --network none, a read-only root filesystem, a bounded temporary filesystem, CPU/memory/process limits, and only the STEP output directory mounted writable. The host must have the image built before using this mode.
-
-For local development without Docker, leave DRAWING2CAD_MCP_DOCKER unset. The MCP server still runs as a separate local process, but this mode is **not an OS security sandbox**.
 
 ## MCP tools
 
@@ -168,7 +144,7 @@ The acceptance target is at least three provided sample drawings converted into 
 2. Add provenance to every feature parameter and show review questions in the React UI.
 3. Extend the CAD toolset to pockets, extrusions and supported contour profiles.
 4. Compare hole sizes/positions and all known feature dimensions, including after STEP re-import.
-5. Run the three sample parts through the Docker sandbox and verify outputs in NX.
+5. Add optional Docker-based isolation later, after the local pipeline and acceptance tests are stable.
 6. Consider STEP AP242 semantic PMI only after the core success metric is met.
 
 ## License
