@@ -19,8 +19,8 @@ The prototype is designed to:
 - **Frontend:** React + TypeScript + Vite
 - **API/orchestrator:** FastAPI
 - **Drawing interpretation:** local VLM and/or OCR/image-processing stage (integration in progress)
-- **Intermediate representation:** Pydantic-validated JSON in backend/app/intermediate.py
-- **CAD tool interface:** local MCP server in backend/app/mcp_server.py
+- **Intermediate representation:** Pydantic-validated JSON in `backend/app/intermediate.py`
+- **CAD tool interface:** local MCP server in `backend/app/mcp_server.py`
 - **CAD kernel:** CadQuery / OpenCascade
 - **Execution:** local MCP worker process communicating over stdio
 - **Output:** STEP file plus validation/review metadata
@@ -29,7 +29,7 @@ The `/api/build` route calls the MCP server using MCP stdio. It does not call th
 
 ## Repository layout
 
-~~~text
+```text
 backend/
   app/
     main.py                 # FastAPI orchestration
@@ -42,59 +42,129 @@ backend/
 frontend/
   src/
   package.json
-~~~
+```
 
 ## Requirements
 
-- Python 3.11 or 3.12, 64-bit
-- Node.js 20+
-- CadQuery installed in a compatible environment
+Install these tools before setting up the project:
 
-### Windows: install dependencies
+- **Git**
+- **Python 3.11 or 3.12, 64-bit**
+- **Conda or Miniforge** (recommended to install CadQuery consistently across operating systems)
+- **Node.js 20+ and npm**
 
-Install CadQuery using Conda-forge in an environment compatible with your installation. For example:
+CadQuery depends on native OpenCascade libraries. We recommend installing it from the `conda-forge` channel rather than trying to install it with pip. Use the same Conda environment for the backend, MCP server and CadQuery.
 
-~~~powershell
-conda create -n drawing2cad python=3.11 -y
+## Setup
+
+### 1. Clone the repository
+
+Run in Terminal, PowerShell, or your preferred shell:
+
+```bash
+git clone https://github.com/KnightRider242/drawing2cad_BlackForest.git
+cd drawing2cad_BlackForest
+```
+
+### 2. Create the Python environment
+
+These commands are the same on Windows, Linux and macOS if Conda/Miniforge is installed and available in your terminal:
+
+```bash
+conda create -n drawing2cad -c conda-forge python=3.11 cadquery -y
 conda activate drawing2cad
-conda install -c conda-forge cadquery -y
-~~~
+```
 
-Then install the API/MCP packages in that same environment:
+If your Conda installation does not initialize your shell, run `conda init` for your shell, restart the terminal, and activate the environment again. Miniforge is a good alternative if you do not already have Conda.
 
-~~~powershell
+**Important:** Do not use Python 3.15 for this project unless CadQuery and its OpenCascade dependencies explicitly support it.
+
+### 3. Install backend/API and MCP dependencies
+
+Activate the `drawing2cad` environment first, then run the commands for your operating system.
+
+**Windows (PowerShell):**
+
+```powershell
 cd backend
 python -m pip install -r requirements.txt
-~~~
+```
 
-Do not use Python 3.15 for this project unless the CadQuery/OpenCascade packages explicitly support it.
+**Linux or macOS (Bash/Zsh):**
 
-## Run locally
+```bash
+cd backend
+python -m pip install -r requirements.txt
+```
 
-### Backend/API
+The commands are identical here; the separate sections are shown to make the setup easier to follow. If you are already in the `backend` directory, do not run `cd backend` a second time.
 
-From the repository root, activate the environment that has CadQuery installed:
+### 4. Start the backend/API
 
-~~~powershell
+From the repository root, activate the `drawing2cad` environment and run:
+
+**Windows (PowerShell):**
+
+```powershell
 cd backend
 python -m uvicorn app.main:app --reload
-~~~
+```
 
-API docs: http://127.0.0.1:8000/docs
+**Linux or macOS (Bash/Zsh):**
 
-### Frontend
+```bash
+cd backend
+python -m uvicorn app.main:app --reload
+```
 
-In another terminal:
+The API will be available at:
 
-~~~powershell
+- API: http://127.0.0.1:8000
+- Interactive API docs: http://127.0.0.1:8000/docs
+
+Keep this terminal open while using the application. The API starts the MCP server as a local Python subprocess; you do not need to launch the MCP server separately.
+
+### 5. Install and start the frontend
+
+Open a **second terminal** at the repository root. Install Node.js 20+ first if it is not already installed.
+
+**Windows (PowerShell):**
+
+```powershell
 cd frontend
 npm install
 npm run dev
-~~~
+```
 
-Open http://127.0.0.1:5173.
+**Linux or macOS (Bash/Zsh):**
 
-Use **Build & validate STEP** to create a parameterized demo plate. This verifies the MCP → CadQuery → STEP validation path; drawing recognition is not yet wired into the UI.
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open the Vite URL shown in the terminal (normally http://127.0.0.1:5173).
+
+Use **Build & validate STEP** to create a parameterized demo plate. This currently verifies the MCP → CadQuery → STEP validation path; drawing recognition is not yet wired into the UI.
+
+## Quick checks
+
+Before starting the API, verify that CadQuery and MCP are importable in the active environment:
+
+```bash
+python -c "import cadquery, mcp; print('CadQuery and MCP OK')"
+```
+
+Check Python and Node.js versions:
+
+```bash
+python --version
+node --version
+npm --version
+```
+
+If `python` points to the wrong interpreter, activate the `drawing2cad` Conda environment and rerun the checks. On some Linux/macOS installations, `python3` is the usual system command, but after activating the environment, use the environment's `python` executable.
 
 ## MCP tools
 
@@ -106,9 +176,9 @@ The toolset is intentionally narrow. Arbitrary code execution is not exposed.
 
 ## API example
 
-POST /api/build:
+`POST /api/build`:
 
-~~~json
+```json
 {
   "name": "demo_plate",
   "length_mm": 80,
@@ -119,11 +189,13 @@ POST /api/build:
     {"x_mm": 20, "y_mm": 0, "diameter_mm": 6}
   ]
 }
-~~~
+```
 
-POST /api/description/validate accepts the intermediate representation and reports whether any feature/dimension needs review before build approval.
+`POST /api/description/validate` accepts the intermediate representation and reports whether any feature/dimension needs review before build approval.
 
-## Validation
+## Outputs and validation
+
+Generated STEP files are written to `backend/outputs/`.
 
 Each build reports:
 - solid count and geometric validity;
@@ -133,6 +205,14 @@ Each build reports:
 - review flags.
 
 A successful STEP re-import alone does not prove that the model matches the drawing. Validation of hole positions/diameters and drawing-derived expectations is being expanded. Always open exported files in a target CAD system (e.g. NX) as part of acceptance testing.
+
+## Troubleshooting
+
+- **CadQuery import fails:** confirm that the `drawing2cad` environment is active and that CadQuery was installed from `conda-forge`.
+- **MCP import fails:** run `python -m pip install -r requirements.txt` inside the active environment.
+- **Frontend command fails:** confirm Node.js 20+ and npm are installed; run `npm install` from `frontend/`.
+- **Port already in use:** stop the other process or configure the app to use a free port.
+- **Shell cannot find `conda`:** initialize Conda for the shell or open a terminal configured by your Conda/Miniforge installation.
 
 ## Success metric
 
